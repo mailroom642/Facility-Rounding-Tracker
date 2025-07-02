@@ -3,88 +3,133 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Room Status Extractor</title>
+  <title>Live Room OCR Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://unpkg.com/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
       padding: 1rem;
-      background: #f9f9f9;
       text-align: center;
     }
-
-    h2 {
-      margin-bottom: 1rem;
-    }
-
-    input[type="file"] {
-      margin-top: 1rem;
-    }
-
-    img {
-      max-width: 90%;
-      margin: 1rem auto;
-      display: block;
-      border: 1px solid #ccc;
+    #reader {
+      width: 320px;
+      height: 240px;
+      margin: 0 auto;
       border-radius: 8px;
+      overflow: hidden;
     }
-
     #result {
+      margin-top: 1rem;
+      background: #f8f8f8;
+      padding: 1rem;
+      border-radius: 8px;
       white-space: pre-wrap;
       text-align: left;
-      background: #fff;
-      padding: 1rem;
-      margin: 1rem auto;
-      max-width: 500px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      max-width: 90%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.6rem 1rem;
+      font-size: 1rem;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
 
-  <h2>Room Status from Image</h2>
-  <input type="file" accept="image/*" onchange="handleImage(event)" />
-  <img id="preview" style="display:none;" />
-  <div id="result">Upload a photo of the meeting room screen to begin</div>
+  <h2>Live Room OCR Scanner</h2>
+  <div id="reader"></div>
+  <button onclick="captureFrame()">Scan Now</button>
+
+  <div id="result">Live OCR results will appear here.</div>
 
   <script>
-    function handleImage(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+    let videoStream;
+    let videoElement;
 
-      const preview = document.getElementById("preview");
-      preview.src = URL.createObjectURL(file);
-      preview.style.display = "block";
+    async function startCamera() {
+      const readerContainer = document.getElementById("reader");
+      videoElement = document.createElement("video");
+      videoElement.setAttribute("autoplay", "");
+      videoElement.setAttribute("muted", "");
+      videoElement.setAttribute("playsinline", "");
+      videoElement.style.width = "100%";
+      readerContainer.appendChild(videoElement);
 
-      document.getElementById("result").innerText = "🔍 Processing...";
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        videoElement.srcObject = videoStream;
+      } catch (err) {
+        alert("Error accessing camera: " + err);
+      }
+    }
+
+    async function captureFrame() {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoElement.videoWidth;
+      canvas.height = videoElement.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+      document.getElementById("result").innerText = "🕵️ Scanning image...";
+
+      const dataUrl = canvas.toDataURL("image/png");
 
       Tesseract.recognize(
-        file,
+        dataUrl,
         'eng',
         { logger: m => console.log(m) }
       ).then(({ data: { text } }) => {
-        const output = parseText(text);
-        document.getElementById("result").innerText = output;
+        const parsed = parseText(text);
+        document.getElementById("result").innerText = parsed;
       });
     }
 
     function parseText(text) {
       const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-      let result = "";
       let room = null;
       let status = null;
       let endTime = null;
 
-      // Match formats like: T1-9F-C08 or T1-9F-C08(10)
       const roomRegex = /T1-\dF-C\d{2}(\(\d+\))?/;
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
 
-        // 1. Find Room Name
         if (!room && roomRegex.test(line)) {
           room = line.match(roomRegex)[0];
         }
 
-        // 2. Determine sta
+        if (room && !status) {
+          if (line.toLowerCase() === "available") {
+            status = "Available";
+          } else if (
+            line.length > 3 &&
+            !line.toLowerCase().includes("conf") &&
+            !line.includes(room) &&
+            !roomRegex.test(line)
+          ) {
+            status = "Occupied";
+            endTime = lines[i + 1] || "End time not found";
+          }
+        }
+      }
+
+      if (!room) return "❌ Room name not found.";
+      if (status === "Available") return `✅ ${room} is available`;
+      if (status === "Occupied") return `❌ ${room} is occupied until ${endTime}`;
+      return `⚠️ ${room} status unclear.`;
+    }
+
+    // Start camera immediately
+    startCamera();
+  </script>
+</body>
+</html>
