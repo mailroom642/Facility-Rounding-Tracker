@@ -33,6 +33,26 @@
       margin: 1rem auto;
       display: none;
     }
+    #form {
+      margin-top: 2rem;
+      display: none;
+      background-color: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .form-row {
+      margin: 1rem 0;
+      text-align: left;
+    }
+    label {
+      font-size: 1rem;
+    }
+    input[type="time"] {
+      padding: 0.5rem;
+      width: 100%;
+      font-size: 1rem;
+    }
   </style>
 </head>
 <body>
@@ -42,54 +62,88 @@
 
   <div id="reader"></div>
 
-<script>
-  let scanner;
+  <div id="form">
+    <div class="form-row">
+      <strong>Room Code:</strong> <span id="roomCodeDisplay"></span>
+    </div>
 
-  function startScanner() {
-    document.getElementById("reader").style.display = "block";
+    <div class="form-row">
+      <label><input type="radio" name="status" value="Unoccupied"> Unoccupied</label><br />
+      <label><input type="radio" name="status" value="Occupied"> Occupied</label>
+    </div>
 
-    scanner = new Html5Qrcode("reader");
-    scanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      qrCodeMessage => {
-        const roomName = extractRoomCode(qrCodeMessage);
-        if (roomName) {
-          alert("Room Code: " + roomName);
-        } else {
-          alert("Invalid QR or no room info found.");
+    <div class="form-row" id="untilRow" style="display: none;">
+      <label for="untilTime">Until When:</label>
+      <input type="time" id="untilTime" />
+    </div>
+  </div>
+
+  <script>
+    let scanner;
+    let scannedRoomCode = "";
+
+    function startScanner() {
+      document.getElementById("reader").style.display = "block";
+
+      scanner = new Html5Qrcode("reader");
+      scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        qrCodeMessage => {
+          const roomName = extractRoomCode(qrCodeMessage);
+          if (roomName) {
+            scannedRoomCode = roomName;
+            stopScanner();
+            showForm(roomName);
+          } else {
+            alert("Invalid QR or room info not found.");
+            stopScanner();
+          }
+        },
+        errorMessage => {
+          // ignore scan errors
         }
-        stopScanner();
-      },
-      errorMessage => {
-        // Ignore scanning errors for now
-      }
-    ).catch(err => {
-      alert("Camera access denied or error: " + err);
-    });
-  }
-
-  function stopScanner() {
-    if (scanner) {
-      scanner.stop().then(() => {
-        scanner.clear();
-        document.getElementById("reader").style.display = "none";
+      ).catch(err => {
+        alert("Camera error: " + err);
       });
     }
-  }
 
-  function extractRoomCode(qrUrl) {
-    try {
-      const url = new URL(qrUrl);
-      const fullName = url.searchParams.get("name"); // e.g. "Conf - India Hyderabad GAR T1-9F-C04(4)"
-      if (!fullName) return null;
-      const parts = fullName.trim().split(" ");
-      return parts[parts.length - 1]; // Last word is the room code
-    } catch (e) {
-      return null;
+    function stopScanner() {
+      if (scanner) {
+        scanner.stop().then(() => {
+          scanner.clear();
+          document.getElementById("reader").style.display = "none";
+        });
+      }
     }
-  }
-</script>
+
+    function extractRoomCode(qrUrl) {
+      try {
+        const url = new URL(qrUrl);
+        const fullName = url.searchParams.get("name");
+        if (!fullName) return null;
+        const parts = fullName.trim().split(" ");
+        return parts[parts.length - 1]; // return last word (room code)
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function showForm(roomCode) {
+      document.getElementById("roomCodeDisplay").innerText = roomCode;
+      document.getElementById("form").style.display = "block";
+    }
+
+    // Show/hide time input if "Occupied" is selected
+    document.addEventListener("DOMContentLoaded", () => {
+      document.querySelectorAll('input[name="status"]').forEach(input => {
+        input.addEventListener("change", () => {
+          const showTime = document.querySelector('input[name="status"]:checked').value === "Occupied";
+          document.getElementById("untilRow").style.display = showTime ? "block" : "none";
+        });
+      });
+    });
+  </script>
 
 </body>
 </html>
