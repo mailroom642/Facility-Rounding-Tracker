@@ -1,112 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Room Status Tracker</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Room Tracker</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+      color: #333;
+    }
+    button {
+      padding: 0.8rem 1.5rem;
+      font-size: 1.1rem;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #reader {
+      width: 100%;
+      max-width: 300px;
+      margin: 1rem auto;
+      display: none;
+    }
+  </style>
 </head>
 <body>
-  <h2>Scan QR Code</h2>
-  <div id="reader" style="width: 300px;"></div>
 
-  <div id="form" style="display:none;">
-    <p>Room: <span id="roomInfo"></span></p>
-    <label><input type="radio" name="status" value="Occupied"> Occupied</label>
-    <label><input type="radio" name="status" value="Unoccupied"> Unoccupied</label>
-    <div id="untilWhen" style="display:none;">
-      Until When: <input type="time" id="timeInput" />
-    </div>
-    <button onclick="submitData()">Submit</button>
-  </div>
+  <h1>Room Tracker</h1>
+  <button onclick="startScanner()">Scan QR</button>
+
+  <div id="reader"></div>
 
   <script>
-    let extractedData = {};
-    let html5QrCode;
+    let scanner;
 
-    // 1. Start scanner
     function startScanner() {
-      html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start(
+      document.getElementById("reader").style.display = "block";
+
+      scanner = new Html5Qrcode("reader");
+      scanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
-        onScanSuccess
-      ).catch(err => console.error("QR error", err));
-    }
-
-    // 2. Stop scanner
-    function stopScanner() {
-      if (html5QrCode) {
-        html5QrCode.stop().then(() => html5QrCode.clear());
-      }
-    }
-
-    // 3. Handle scan
-    function onScanSuccess(decodedText) {
-      stopScanner(); // prevent multiple scans
-      extractData(decodedText);
-    }
-
-    // 4. Extract room data from URL
-    function extractData(url) {
-      const params = new URL(url).searchParams;
-      extractedData = {
-        roomId: params.get("room_id"),
-        floor: params.get("floor")
-      };
-      showForm();
-    }
-
-    // 5. Show form
-    function showForm() {
-      document.getElementById("roomInfo").innerText = `${extractedData.roomId} (Floor ${extractedData.floor})`;
-      document.getElementById("form").style.display = "block";
-    }
-
-    // 6. Submit data
-    function submitData() {
-      const status = document.querySelector('input[name="status"]:checked')?.value;
-      const until = document.getElementById("timeInput").value;
-
-      if (!status) return alert("Select a status first!");
-
-      const payload = {
-        ...extractedData,
-        status,
-        until: status === "Occupied" ? until : ""
-      };
-
-      fetch("YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL", {
-        method: "POST",
-        body: JSON.stringify(payload),
-        headers: { "Content-Type": "application/json" }
-      }).then(() => {
-        alert("Submitted!");
-        resetForm();
-        startScanner(); // restart scanner for next QR
-      }).catch(() => {
-        alert("Failed to submit. Try again.");
-        startScanner();
+        qrCodeMessage => {
+          alert("QR Code Scanned: " + qrCodeMessage);
+          stopScanner();
+        },
+        errorMessage => {
+          // Optional: console.log("Scanning error", errorMessage);
+        }
+      ).catch(err => {
+        alert("Camera access denied or error: " + err);
       });
     }
 
-    // 7. Reset form and inputs
-    function resetForm() {
-      document.getElementById("form").style.display = "none";
-      document.getElementById("timeInput").value = "";
-      document.querySelectorAll('input[name="status"]').forEach(el => el.checked = false);
-      document.getElementById("untilWhen").style.display = "none";
+    function stopScanner() {
+      if (scanner) {
+        scanner.stop().then(() => {
+          scanner.clear();
+          document.getElementById("reader").style.display = "none";
+        });
+      }
     }
-
-    // 8. Show/hide time field based on selection
-    document.querySelectorAll('input[name="status"]').forEach(el =>
-      el.addEventListener("change", () => {
-        const show = document.querySelector('input[name="status"]:checked').value === "Occupied";
-        document.getElementById("untilWhen").style.display = show ? "block" : "none";
-      })
-    );
-
-    // Start scanner on page load
-    startScanner();
   </script>
 </body>
 </html>
