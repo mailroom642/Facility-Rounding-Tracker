@@ -11,64 +11,83 @@
       padding: 1rem;
       font-family: Arial, sans-serif;
       background-color: #f4f4f4;
-      text-align: center;
     }
+
     h1 {
-      font-size: 2rem;
-      margin-bottom: 1.5rem;
+      text-align: center;
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
       color: #333;
     }
+
+    #reader {
+      width: 100%;
+      max-width: 320px;
+      height: 240px;
+      margin: 0 auto 1rem auto;
+      border: 2px solid #ccc;
+      border-radius: 12px;
+      background: black;
+    }
+
+    #form {
+      max-width: 320px;
+      margin: 0 auto;
+      padding: 1rem;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .form-row {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      font-size: 1rem;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    input[type="radio"] {
+      margin-right: 0.5rem;
+    }
+
+    input[type="time"] {
+      width: 100%;
+      padding: 0.4rem;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
     button {
-      padding: 0.8rem 1.5rem;
-      font-size: 1.1rem;
+      width: 100%;
+      padding: 0.8rem;
+      font-size: 1rem;
       background-color: #007bff;
       color: white;
       border: none;
       border-radius: 8px;
       cursor: pointer;
     }
-    #reader {
-      width: 100%;
-      max-width: 300px;
-      margin: 1rem auto;
-      display: none;
-    }
-    #form {
-      margin-top: 2rem;
-      display: none;
-      background-color: #fff;
-      padding: 1rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    .form-row {
-      margin: 1rem 0;
-      text-align: left;
-    }
-    label {
-      font-size: 1rem;
-    }
-    input[type="time"] {
-      padding: 0.5rem;
-      width: 100%;
-      font-size: 1rem;
+
+    #roomCodeDisplay {
+      font-weight: bold;
+      color: #222;
     }
   </style>
 </head>
 <body>
 
   <h1>Room Tracker</h1>
-  <button onclick="startScanner()">Scan QR</button>
 
   <div id="reader"></div>
 
   <div id="form">
     <div class="form-row">
-      <strong>Room Code:</strong> <span id="roomCodeDisplay"></span>
-    </div>
-
-    <div class="form-row">
-      <label><input type="radio" name="status" value="Unoccupied"> Unoccupied</label><br />
+      <label>Status:</label>
+      <label><input type="radio" name="status" value="Unoccupied" checked> Unoccupied</label>
       <label><input type="radio" name="status" value="Occupied"> Occupied</label>
     </div>
 
@@ -76,47 +95,56 @@
       <label for="untilTime">Until When:</label>
       <input type="time" id="untilTime" />
     </div>
+
+    <div class="form-row">
+      <button onclick="scanNow()">Scan Me</button>
+    </div>
+
+    <div class="form-row" id="roomCodeDisplayBox" style="display:none;">
+      Room Code: <span id="roomCodeDisplay"></span>
+    </div>
   </div>
 
   <script>
     let scanner;
-    let scannedRoomCode = "";
 
-    function startScanner() {
-      document.getElementById("reader").style.display = "block";
-
+    // Start camera feed as soon as page loads
+    window.addEventListener("load", () => {
       scanner = new Html5Qrcode("reader");
       scanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
-        qrCodeMessage => {
-          const roomName = extractRoomCode(qrCodeMessage);
-          if (roomName) {
-            scannedRoomCode = roomName;
-            stopScanner();
-            showForm(roomName);
-          } else {
-            alert("Invalid QR or room info not found.");
-            stopScanner();
-          }
-        },
-        errorMessage => {
-          // ignore scan errors
-        }
+        () => {},
+        () => {}
       ).catch(err => {
         alert("Camera error: " + err);
       });
+    });
+
+    // Radio buttons toggle time input
+    document.querySelectorAll('input[name="status"]').forEach(input => {
+      input.addEventListener("change", () => {
+        const isOccupied = document.querySelector('input[name="status"]:checked').value === "Occupied";
+        document.getElementById("untilRow").style.display = isOccupied ? "block" : "none";
+      });
+    });
+
+    // Extract and show room code on scan
+    function scanNow() {
+      scanner.scanOnce()
+        .then(qrCodeMessage => {
+          const room = extractRoomCode(qrCodeMessage);
+          if (room) {
+            document.getElementById("roomCodeDisplay").innerText = room;
+            document.getElementById("roomCodeDisplayBox").style.display = "block";
+          } else {
+            alert("Room code not found in QR");
+          }
+        })
+        .catch(err => alert("Scan failed: " + err));
     }
 
-    function stopScanner() {
-      if (scanner) {
-        scanner.stop().then(() => {
-          scanner.clear();
-          document.getElementById("reader").style.display = "none";
-        });
-      }
-    }
-
+    // Extract room name from QR URL
     function extractRoomCode(qrUrl) {
       try {
         const url = new URL(qrUrl);
@@ -128,21 +156,6 @@
         return null;
       }
     }
-
-    function showForm(roomCode) {
-      document.getElementById("roomCodeDisplay").innerText = roomCode;
-      document.getElementById("form").style.display = "block";
-    }
-
-    // Show/hide time input if "Occupied" is selected
-    document.addEventListener("DOMContentLoaded", () => {
-      document.querySelectorAll('input[name="status"]').forEach(input => {
-        input.addEventListener("change", () => {
-          const showTime = document.querySelector('input[name="status"]:checked').value === "Occupied";
-          document.getElementById("untilRow").style.display = showTime ? "block" : "none";
-        });
-      });
-    });
   </script>
 
 </body>
