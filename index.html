@@ -42,36 +42,54 @@
 
   <div id="reader"></div>
 
-  <script>
-    let scanner;
+<script>
+  let scanner;
 
-    function startScanner() {
-      document.getElementById("reader").style.display = "block";
+  function startScanner() {
+    document.getElementById("reader").style.display = "block";
 
-      scanner = new Html5Qrcode("reader");
-      scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        qrCodeMessage => {
-          alert("QR Code Scanned: " + qrCodeMessage);
-          stopScanner();
-        },
-        errorMessage => {
-          // Optional: console.log("Scanning error", errorMessage);
+    scanner = new Html5Qrcode("reader");
+    scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      qrCodeMessage => {
+        const roomName = extractRoomCode(qrCodeMessage);
+        if (roomName) {
+          alert("Room Code: " + roomName);
+        } else {
+          alert("Invalid QR or no room info found.");
         }
-      ).catch(err => {
-        alert("Camera access denied or error: " + err);
+        stopScanner();
+      },
+      errorMessage => {
+        // Ignore scanning errors for now
+      }
+    ).catch(err => {
+      alert("Camera access denied or error: " + err);
+    });
+  }
+
+  function stopScanner() {
+    if (scanner) {
+      scanner.stop().then(() => {
+        scanner.clear();
+        document.getElementById("reader").style.display = "none";
       });
     }
+  }
 
-    function stopScanner() {
-      if (scanner) {
-        scanner.stop().then(() => {
-          scanner.clear();
-          document.getElementById("reader").style.display = "none";
-        });
-      }
+  function extractRoomCode(qrUrl) {
+    try {
+      const url = new URL(qrUrl);
+      const fullName = url.searchParams.get("name"); // e.g. "Conf - India Hyderabad GAR T1-9F-C04(4)"
+      if (!fullName) return null;
+      const parts = fullName.trim().split(" ");
+      return parts[parts.length - 1]; // Last word is the room code
+    } catch (e) {
+      return null;
     }
-  </script>
+  }
+</script>
+
 </body>
 </html>
