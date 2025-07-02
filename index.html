@@ -14,9 +14,6 @@
       text-align: center;
       padding: 1rem;
     }
-    h2 {
-      margin-bottom: 0.5rem;
-    }
     #video-container {
       position: relative;
       width: 100%;
@@ -40,23 +37,16 @@
       color: white;
       border: none;
       border-radius: 8px;
-      cursor: pointer;
-    }
-    #status {
-      margin-top: 1rem;
-      font-size: 1rem;
     }
     #output {
       margin-top: 1rem;
-      text-align: left;
-      max-width: 400px;
-      margin-inline: auto;
       background: #222;
       padding: 1rem;
       border-radius: 10px;
-    }
-    #output p {
-      margin: 0.3rem 0;
+      max-width: 400px;
+      margin-inline: auto;
+      display: none;
+      text-align: left;
     }
   </style>
 </head>
@@ -69,7 +59,7 @@
   <button onclick="scanImage()">📸 Scan</button>
   <div id="status">Ready to scan.</div>
 
-  <div id="output" style="display:none;">
+  <div id="output">
     <p><strong>Room No:</strong> <span id="room-no"></span></p>
     <p><strong>Status:</strong> <span id="status-val"></span></p>
     <p id="until-block" style="display:none;"><strong>Until:</strong> <span id="until-time"></span></p>
@@ -87,78 +77,55 @@
         video.srcObject = stream;
         video.onloadedmetadata = () => {
           video.play();
-          setTimeout(() => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-          }, 500);
+          canvas.width = video.videoWidth || 480;
+          canvas.height = video.videoHeight || 360;
         };
       } catch (err) {
-        alert("Camera error: " + err);
+        statusDiv.textContent = "Camera error: " + err;
       }
     }
 
     function parseData(text) {
-      const lines = text.split(/\\n|\\r/).map(l => l.trim()).filter(Boolean);
-      const fullText = lines.join(\" \");
-      
-      const roomRegex = /(T1[-–\\s]?\\dF[-–\\s]?C\\d{2})/i;
-      const timeRegex = /(\\d{1,2}:\\d{2}\\s?(AM|PM)?)/i;
-
+      const lines = text.split(/\n|\r/).map(l => l.trim()).filter(Boolean);
+      const fullText = lines.join(" ");
+      const roomRegex = /(T1[-–\s]?\dF[-–\s]?C\d{2})/i;
+      const timeRegex = /(\d{1,2}:\d{2}\s?(AM|PM)?)/i;
       const roomMatch = fullText.match(roomRegex);
       const timeMatch = fullText.match(timeRegex);
       const isOccupied = !/available/i.test(fullText) && timeMatch;
-
-      const room = roomMatch ? roomMatch[1].replace(/[–\\s]/g, '-') : \"Not found\";
-      const status = isOccupied ? \"Occupied\" : \"Unoccupied\";
-      const until = isOccupied && timeMatch ? timeMatch[0] : \"\";
-
+      const room = roomMatch ? roomMatch[1].replace(/[–\s]/g, '-') : "Not found";
+      const status = isOccupied ? "Occupied" : "Unoccupied";
+      const until = isOccupied && timeMatch ? timeMatch[0] : "";
       return { room, status, until };
     }
 
     function showData(parsed) {
-      document.getElementById(\"output\").style.display = \"block\";
-      document.getElementById(\"room-no\").textContent = parsed.room;
-      document.getElementById(\"status-val\").textContent = parsed.status;
-
-      if (parsed.status === \"Occupied\" && parsed.until) {
-        document.getElementById(\"until-block\").style.display = \"block\";
-        document.getElementById(\"until-time\").textContent = parsed.until;
+      document.getElementById("output").style.display = "block";
+      document.getElementById("room-no").textContent = parsed.room;
+      document.getElementById("status-val").textContent = parsed.status;
+      if (parsed.status === "Occupied" && parsed.until) {
+        document.getElementById("until-block").style.display = "block";
+        document.getElementById("until-time").textContent = parsed.until;
       } else {
-        document.getElementById(\"until-block\").style.display = \"none\";
+        document.getElementById("until-block").style.display = "none";
       }
     }
 
     function scanImage() {
       if (video.videoWidth === 0) {
-        statusDiv.textContent = \"Camera not ready yet.\";
+        statusDiv.textContent = "Camera not ready yet.";
         return;
       }
-
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const image = canvas.toDataURL();
-
-      statusDiv.textContent = \"🔍 Scanning...\";
-
-      Tesseract.recognize(image, 'eng').then(({ data: { text, words } }) => {
-        // Draw words
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.lineWidth = 2;
-        ctx.font = '16px sans-serif';
-
-        words.forEach(word => {
-          const { bbox: { x0, y0, x1, y1 }, text } = word;
-          ctx.strokeStyle = '#00ff00';
-          ctx.fillStyle = 'rgba(0,255,0,0.2)';
-          ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
-          ctx.fillText(text, x0, y1 + 14);
-        });
-
+      statusDiv.textContent = "🔍 Scanning...";
+      Tesseract.recognize(image, 'eng').then(({ data: { text } }) => {
         const parsed = parseData(text);
         showData(parsed);
-        statusDiv.textContent = \"✅ Scan complete.\";
+        statusDiv.textContent = "✅ Scan complete.";
       }).catch(err => {
         console.error(err);
-        statusDiv.textContent = \"❌ OCR error.\";
+        statusDiv.textContent = "❌ OCR error.";
       });
     }
 
