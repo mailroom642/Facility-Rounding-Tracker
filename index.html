@@ -1,77 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Live OCR Scanner</title>
+  <title>Room Scanner (Manual)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
   <style>
-    body { margin: 0; font-family: sans-serif; background: #111; color: #fff; text-align: center; }
-    video, canvas { width: 100%; max-width: 400px; border-radius: 12px; }
-    #wrapper { position: relative; margin: auto; }
-    canvas { position: absolute; top: 0; left: 0; z-index: 10; }
-    #status { margin-top: 1rem; }
-  </style>
-</head>
-<body>
-  <h2>Live OCR Scanner</h2>
-  <div id="wrapper">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="overlay"></canvas>
-  </div>
-  <div id="status">Initializing...</div>
-
-  <script>
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("overlay");
-    const ctx = canvas.getContext("2d");
-    const statusBox = document.getElementById("status");
-
-    async function startCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      video.srcObject = stream;
-
-      video.onloadedmetadata = () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        scanLoop();
-      };
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #111;
+      color: #fff;
+      text-align: center;
+      padding: 1rem;
     }
-
-    async function scanLoop() {
-      setInterval(async () => {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL();
-
-        statusBox.textContent = "Scanning...";
-
-        Tesseract.recognize(dataUrl, 'eng')
-          .then(({ data: { words } }) => {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            for (const word of words) {
-              const { bbox, text } = word;
-              const { x0, y0, x1, y1 } = bbox;
-
-              // Highlight if it's likely a room or time
-              const highlight = /T1-\\dF-C\\d{2}|available|\\d{1,2}:\\d{2}/i.test(text);
-
-              ctx.strokeStyle = highlight ? '#0f0' : '#ff0';
-              ctx.lineWidth = 2;
-              ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
-              ctx.font = '14px sans-serif';
-              ctx.fillStyle = highlight ? '#0f0' : '#fff';
-              ctx.fillText(text, x0, y1 + 14);
-            }
-
-            statusBox.textContent = "✅ Text scanned!";
-          })
-          .catch(e => {
-            console.error(e);
-            statusBox.textContent = "⚠️ OCR failed";
-          });
-      }, 2500);
+    #wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      margin: auto;
     }
-
-    startCamera();
-  </script>
-</body>
-</html>
+    video, canvas {
+      width: 100%;
+      border-radius: 12px;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 10;
+    }
+    #scanBtn {
+      margin-top: 1rem;
+      padding: 0.6rem 1.2rem;
+      font-s
